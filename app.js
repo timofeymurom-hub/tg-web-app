@@ -123,7 +123,8 @@ function renderRecovery() {
 function renderLastWorkout() {
   const ws = DB.workouts || [];
   if (!ws.length) return;
-  const lastDate = ws[ws.length - 1].date;
+  const sortedDates = [...new Set(ws.map(w => w.date))].sort((a, b) => parseDate(b) - parseDate(a));
+  const lastDate = sortedDates[0];
   const last = ws.filter(w => w.date === lastDate);
   const exs = [...new Set(last.map(w => w.exercise))];
   const card = $('last-workout-card');
