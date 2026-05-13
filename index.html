@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>GYM BOT v13 — Mini App</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+<!-- ═══════════════════════ NAVIGATION ═══════════════════════ -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" data-tab="dashboard" onclick="switchTab('dashboard')">
+    <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
+    <span>Главная</span>
+  </button>
+  <button class="nav-btn" data-tab="workout" onclick="switchTab('workout')">
+    <svg viewBox="0 0 24 24"><path d="M20.57 14.86L22 13.43 20.57 12 17 15.57 8.43 7 12 3.43 10.57 2 9.14 3.43 7.71 2 5.57 4.14 4.14 2.71 2.71 4.14l1.43 1.43L2 7.71l1.43 1.43L2 10.57 3.43 12 7 8.43 15.57 17 12 20.57 13.43 22l1.43-1.43L16.29 22l2.14-2.14 1.43 1.43 1.43-1.43-1.43-1.43L22 16.29l-1.43-1.43z"/></svg>
+    <span>Запись</span>
+  </button>
+  <button class="nav-btn" data-tab="diary" onclick="switchTab('diary')">
+    <svg viewBox="0 0 24 24"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>
+    <span>Дневник</span>
+  </button>
+  <button class="nav-btn" data-tab="analytics" onclick="switchTab('analytics')">
+    <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+    <span>Аналитика</span>
+  </button>
+  <button class="nav-btn" data-tab="profile" onclick="switchTab('profile')">
+    <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+    <span>Профиль</span>
+  </button>
+</nav>
+
+<!-- ═══════════════════════ DASHBOARD ═══════════════════════ -->
+<section id="tab-dashboard" class="tab active">
+  <header class="page-header">
+    <div class="header-left">
+      <h1 id="greeting">💪 Привет!</h1>
+      <p class="subtitle" id="today-date">Загрузка...</p>
+    </div>
+    <div class="streak-badge">
+      <span id="streak-num">0</span>
+      <small>🔥</small>
+    </div>
+  </header>
+
+  <!-- Recovery Ring -->
+  <div class="recovery-card glass">
+    <div class="recovery-ring-wrap">
+      <svg class="ring" viewBox="0 0 120 120">
+        <circle cx="60" cy="60" r="50" class="ring-bg"/>
+        <circle cx="60" cy="60" r="50" class="ring-fill" id="recovery-circle" style="stroke-dashoffset:314"/>
+      </svg>
+      <div class="ring-center">
+        <span id="recovery-pct">--</span>
+        <small>% ЦНС</small>
+      </div>
+    </div>
+    <div class="recovery-info">
+      <h3>Восстановление ЦНС</h3>
+      <p id="recovery-status">Загрузка данных...</p>
+      <div class="recovery-pills" id="recovery-pills"></div>
+    </div>
+  </div>
+
+  <!-- Quick Stats -->
+  <div class="stats-grid">
+    <div class="stat-card glass">
+      <span class="stat-icon">🏋️</span>
+      <span class="stat-val" id="stat-sessions">--</span>
+      <span class="stat-label">Тренировок</span>
+    </div>
+    <div class="stat-card glass">
+      <span class="stat-icon">🏗</span>
+      <span class="stat-val" id="stat-tonnage">--</span>
+      <span class="stat-label">Тоннаж (кг)</span>
+    </div>
+    <div class="stat-card glass">
+      <span class="stat-icon">📈</span>
+      <span class="stat-val" id="stat-1rm">--</span>
+      <span class="stat-label">Макс 1ПМ</span>
+    </div>
+    <div class="stat-card glass">
+      <span class="stat-icon">⚡</span>
+      <span class="stat-val" id="stat-streak">--</span>
+      <span class="stat-label">Серия недель</span>
+    </div>
+  </div>
+
+  <!-- Last Workout -->
+  <div class="section-title">🕐 Последняя тренировка</div>
+  <div class="last-workout glass" id="last-workout-card">
+    <p class="empty-state">Нет данных</p>
+  </div>
+
+  <!-- PR Records -->
+  <div class="section-title">🏆 Личные рекорды</div>
+  <div class="pr-list" id="pr-list"></div>
+</section>
+
+<!-- ═══════════════════════ WORKOUT ═══════════════════════ -->
+<section id="tab-workout" class="tab">
+  <header class="page-header">
+    <h1>🏋️ Запись подхода</h1>
+    <p class="subtitle">Выбери упражнение и введи данные</p>
+  </header>
+
+  <!-- Exercise Picker -->
+  <div class="section-title">Упражнение</div>
+  <div class="exercise-chips" id="exercise-chips"></div>
+  <div class="custom-input-row">
+    <input type="text" id="custom-exercise-input" placeholder="Своё упражнение..." class="glass-input" maxlength="40"/>
+    <button class="icon-btn" onclick="selectCustomExercise()">✓</button>
+  </div>
+  <div class="selected-exercise glass" id="selected-exercise-display" style="display:none">
+    <span id="selected-ex-name">—</span>
+    <button class="clear-btn" onclick="clearExercise()">✕</button>
+  </div>
+
+  <!-- Date -->
+  <div class="section-title">Дата</div>
+  <div class="date-chips">
+    <button class="chip active" onclick="selectDate('today', this)">📅 Сегодня</button>
+    <button class="chip" onclick="selectDate('yesterday', this)">🔙 Вчера</button>
+    <button class="chip" onclick="selectDate('custom', this)">✍️ Другая</button>
+  </div>
+  <input type="date" id="custom-date-input" style="display:none" class="glass-input" onchange="setCustomDate()"/>
+
+  <!-- Weight -->
+  <div class="section-title">Вес (кг)</div>
+  <div class="slider-section">
+    <div class="weight-display glass">
+      <button class="adj-btn" onclick="adjustWeight(-2.5)">−2.5</button>
+      <div class="val-center">
+        <span id="weight-display">80</span>
+        <small>кг</small>
+      </div>
+      <button class="adj-btn" onclick="adjustWeight(+2.5)">+2.5</button>
+    </div>
+    <input type="range" id="weight-slider" min="0" max="300" step="2.5" value="80" class="slider" oninput="updateWeight(this.value)"/>
+    <div class="quick-weights" id="quick-weights"></div>
+    <label class="bodyweight-toggle">
+      <input type="checkbox" id="no-weight-cb" onchange="toggleNoWeight()"/>
+      <span>Без веса (подтягивания, планка)</span>
+    </label>
+  </div>
+
+  <!-- Reps -->
+  <div class="section-title">Повторения</div>
+  <div class="weight-display glass">
+    <button class="adj-btn" onclick="adjustReps(-1)">−1</button>
+    <div class="val-center">
+      <span id="reps-display">8</span>
+      <small>повт.</small>
+    </div>
+    <button class="adj-btn" onclick="adjustReps(+1)">+1</button>
+  </div>
+  <div class="quick-reps">
+    <button class="chip" onclick="setReps(3)">3</button>
+    <button class="chip" onclick="setReps(5)">5</button>
+    <button class="chip" onclick="setReps(6)">6</button>
+    <button class="chip" onclick="setReps(8)">8</button>
+    <button class="chip" onclick="setReps(10)">10</button>
+    <button class="chip" onclick="setReps(12)">12</button>
+    <button class="chip" onclick="setReps(15)">15</button>
+  </div>
+
+  <!-- RPE -->
+  <div class="section-title">Сложность (RPE)</div>
+  <div class="rpe-buttons">
+    <button class="rpe-btn green active" onclick="selectRPE('Легко', this)">🟢 Легко</button>
+    <button class="rpe-btn yellow" onclick="selectRPE('Средне', this)">🟡 Средне</button>
+    <button class="rpe-btn red" onclick="selectRPE('Тяжело', this)">🔴 Тяжело</button>
+  </div>
+
+  <!-- 1RM Preview -->
+  <div class="e1rm-preview glass" id="e1rm-preview">
+    <span>⚡ Расчётный 1ПМ: <strong id="e1rm-val">—</strong> кг</span>
+  </div>
+
+  <!-- Sets Log -->
+  <div class="section-title">Подходы этой сессии</div>
+  <div class="sets-log" id="sets-log">
+    <p class="empty-state">Ещё нет подходов</p>
+  </div>
+
+  <!-- Add Set -->
+  <div class="workout-actions">
+    <button class="btn-secondary" onclick="addSet()">➕ Добавить подход</button>
+    <button class="btn-primary" id="save-btn" onclick="saveWorkout()" style="display:none">✅ Сохранить тренировку</button>
+  </div>
+</section>
+
+<!-- ═══════════════════════ DIARY ═══════════════════════ -->
+<section id="tab-diary" class="tab">
+  <header class="page-header">
+    <h1>📈 Мой дневник</h1>
+    <p class="subtitle">История всех тренировок</p>
+  </header>
+  <div class="diary-filter">
+    <button class="chip active" onclick="filterDiary(7, this)">7 дней</button>
+    <button class="chip" onclick="filterDiary(30, this)">30 дней</button>
+    <button class="chip" onclick="filterDiary(90, this)">3 месяца</button>
+    <button class="chip" onclick="filterDiary(0, this)">Всё</button>
+  </div>
+  <div id="diary-list"></div>
+</section>
+
+<!-- ═══════════════════════ ANALYTICS ═══════════════════════ -->
+<section id="tab-analytics" class="tab">
+  <header class="page-header">
+    <h1>🏆 Аналитика</h1>
+    <p class="subtitle">Прогресс и статистика</p>
+  </header>
+
+  <!-- Exercise Selector for Chart -->
+  <div class="section-title">Упражнение для графика</div>
+  <div class="exercise-chips" id="analytics-chips"></div>
+
+  <!-- 1RM Chart -->
+  <div class="chart-card glass">
+    <div class="chart-header">
+      <span>📈 Прогресс 1ПМ</span>
+      <span id="chart-ex-label" class="badge">—</span>
+    </div>
+    <canvas id="chart-1rm" height="200"></canvas>
+    <div class="chart-empty" id="chart-empty">Выбери упражнение 👆</div>
+  </div>
+
+  <!-- Volume Chart -->
+  <div class="chart-card glass">
+    <div class="chart-header"><span>🏗 Тоннаж по неделям</span></div>
+    <canvas id="chart-volume" height="160"></canvas>
+  </div>
+
+  <!-- Exercise Breakdown -->
+  <div class="section-title">Объём по упражнениям</div>
+  <div id="volume-breakdown" class="breakdown-list"></div>
+
+  <!-- Plateau Detector -->
+  <div class="section-title">⚠️ Детектор плато</div>
+  <div class="plateau-list" id="plateau-list"></div>
+</section>
+
+<!-- ═══════════════════════ PROFILE ═══════════════════════ -->
+<section id="tab-profile" class="tab">
+  <header class="page-header">
+    <h1>👤 Профиль</h1>
+    <p class="subtitle">Твоя атлетическая карточка</p>
+  </header>
+
+  <div class="profile-card glass">
+    <div class="avatar-ring">
+      <img id="avatar-img" src="" alt="avatar" onerror="this.style.display='none'"/>
+      <span id="avatar-letter">?</span>
+    </div>
+    <div class="profile-info">
+      <h2 id="profile-name">—</h2>
+      <p id="profile-goal">—</p>
+    </div>
+  </div>
+
+  <!-- Body Stats -->
+  <div class="section-title">📊 Параметры тела</div>
+  <div class="body-stats-grid" id="body-stats-grid">
+    <div class="body-stat glass">
+      <span class="stat-icon">⚖️</span>
+      <span class="stat-val" id="p-weight">—</span>
+      <span class="stat-label">Вес (кг)</span>
+    </div>
+    <div class="body-stat glass">
+      <span class="stat-icon">📐</span>
+      <span class="stat-val" id="p-height">—</span>
+      <span class="stat-label">Рост (см)</span>
+    </div>
+    <div class="body-stat glass">
+      <span class="stat-icon">💧</span>
+      <span class="stat-val" id="p-fat">—</span>
+      <span class="stat-label">% жира</span>
+    </div>
+    <div class="body-stat glass">
+      <span class="stat-icon">🔥</span>
+      <span class="stat-val" id="p-tdee">—</span>
+      <span class="stat-label">TDEE (ккал)</span>
+    </div>
+  </div>
+
+  <!-- Strength Standards -->
+  <div class="section-title">💪 Нормативы силы</div>
+  <div id="strength-standards" class="standards-list"></div>
+
+  <!-- History Summary -->
+  <div class="section-title">📅 Статистика</div>
+  <div class="history-summary glass" id="history-summary"></div>
+
+  <!-- Settings -->
+  <div class="section-title">⚙️ Настройки</div>
+  <div class="settings-panel glass">
+    <div class="setting-row">
+      <span>Тема</span>
+      <button class="chip" onclick="toggleTheme()" id="theme-btn">🌙 Тёмная</button>
+    </div>
+    <div class="setting-row">
+      <span>Очистить текущую сессию</span>
+      <button class="chip danger" onclick="clearSession()">🗑 Удалить</button>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════ TOAST ═══════════════════════ -->
+<div class="toast" id="toast"></div>
+
+<!-- ═══════════════════════ SCRIPTS ═══════════════════════ -->
+<script src="app.js"></script>
+</body>
+</html>
