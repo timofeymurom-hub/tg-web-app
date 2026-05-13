@@ -49,12 +49,19 @@ async function loadData() {
   initUI();
 }
 
+let deletedIds = [];
+
 async function saveData() {
   localStorage.setItem('gym_db', JSON.stringify(DB));
   const uid = tg?.initDataUnsafe?.user?.id;
   if (!uid) return;
   try {
-    await fetch(`${API}/save`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ uid, data: DB }) });
+    await fetch(`${API}/save`, { 
+      method: 'POST', 
+      headers: { 'Content-Type': 'application/json' }, 
+      body: JSON.stringify({ uid, data: DB, deleted_ids: deletedIds }) 
+    });
+    deletedIds = []; // Очищаем после успешного сохранения
   } catch (e) { }
 }
 
@@ -327,11 +334,24 @@ function renderDiary(days) {
     const exs = byDate[date];
     const dayTonnage = Object.values(exs).flat().reduce((s, w) => s + (w.weight || 0) * (w.reps || 0), 0);
     const exHtml = Object.entries(exs).map(([ex, sets]) => {
-      const badges = sets.map(s => `<span class="diary-set-badge">${s.weight > 0 ? s.weight + 'кг' : 'BW'}×${s.reps}</span>`).join('');
+      const badges = sets.map(s => `<span class="diary-set-badge" onclick="deleteHistorySet('${s.id}', event)" title="Удалить подход" style="cursor:pointer">${s.weight > 0 ? s.weight + 'кг' : 'BW'}×${s.reps} ✖</span>`).join('');
       return `<div class="diary-exercise"><div class="diary-ex-name">${ex}</div><div class="diary-sets-row">${badges}</div></div>`;
     }).join('');
     return `<div class="diary-day"><div class="diary-day-header">📅 ${date}<span class="diary-tonnage">${Math.round(dayTonnage)} кг</span></div>${exHtml}</div>`;
   }).join('');
+}
+
+async function deleteHistorySet(id, event) {
+  if (event) event.stopPropagation();
+  if (!confirm('🗑 Удалить этот подход?')) return;
+  deletedIds.push(id);
+  DB.workouts = DB.workouts.filter(w => String(w.id) !== String(id));
+  await saveData();
+  // Перерисовываем дневник с текущим фильтром (по умолчанию 7 дней)
+  const activeDaysBadge = document.querySelector('.diary-chips .active');
+  const days = activeDaysBadge ? parseInt(activeDaysBadge.getAttribute('onclick').match(/\d+/)[0]) : 7;
+  renderDiary(days);
+  showToast('Подход удален');
 }
 
 // ── Analytics ──
