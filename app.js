@@ -108,23 +108,76 @@ function renderDashboard() {
 
 function renderRecovery() {
   const ws = DB.workouts || [];
-  const cutoff = new Date(Date.now() - 7 * 24 * 3600 * 1000);
-  const recent = ws.filter(w => { const d = parseDate(w.date); return d && d >= cutoff; });
-  const heavy = recent.filter(w => w.rpe === 'Тяжело').length;
-  const total = recent.length;
-  const pct = total === 0 ? 100 : Math.max(20, Math.round(100 - heavy / total * 50));
-  $('recovery-pct').textContent = pct;
-  const offset = 314 - (314 * pct / 100);
-  $('recovery-circle').style.strokeDashoffset = offset;
-  $('recovery-status').textContent = pct >= 80 ? '✅ Готов к тяжёлой тренировке' : pct >= 50 ? '🟡 Умеренная нагрузка' : '⚠️ Нужен отдых';
+  const now = new Date();
+  const cutoff7 = new Date(now - 7 * 24 * 3600 * 1000);
+  const w7d = ws.filter(w => { const d = parseDate(w.date); return d && d >= cutoff7; });
+
+  // CNS/EIMD multipliers (from bot)
+  const CNS_MULT  = { 'Жим лёжа': 1.0, 'Становая тяга': 1.4, 'Присед': 1.2 };
+  const EIMD_MULT = { 'Жим лёжа': 1.0, 'Становая тяга': 1.35, 'Присед': 1.15 };
+  const RPE_INT   = { 'Легко': 0.60, 'Средне': 0.80, 'Тяжело': 0.93 };
+
+  const exercises = [...new Set(ws.map(w => w.exercise))].filter(Boolean);
+
+  let totalCns = 0, totalMuscle = 0, count = 0;
   const pills = $('recovery-pills');
   pills.innerHTML = '';
-  const exs = [...new Set(recent.map(w => w.exercise))];
-  exs.slice(0, 4).forEach(ex => {
-    const h = recent.filter(w => w.exercise === ex && w.rpe === 'Тяжело').length;
-    const cls = h === 0 ? 'green' : h <= 1 ? 'yellow' : 'red';
-    pills.innerHTML += `<span class="pill ${cls}">${ex}</span>`;
+
+  exercises.slice(0, 6).forEach(ex => {
+    const exRecs = w7d.filter(w => w.exercise === ex);
+    if (!exRecs.length) return;
+
+    // find last session date
+    const lastRec = exRecs.reduce((a, b) => (parseDate(a.date) > parseDate(b.date) ? a : b));
+    const lastDate = parseDate(lastRec.date);
+    if (!lastDate) return;
+
+    const hoursPassed = (now - lastDate) / 3600000;
+
+    // CNS base by hours
+    let cnsBase = hoursPassed < 8 ? 0.10 : hoursPassed < 16 ? 0.30 :
+                  hoursPassed < 24 ? 0.50 : hoursPassed < 36 ? 0.65 :
+                  hoursPassed < 48 ? 0.78 : hoursPassed < 60 ? 0.88 :
+                  hoursPassed < 72 ? 0.95 : 1.00;
+    let muscleBase = hoursPassed < 12 ? 0.15 : hoursPassed < 24 ? 0.45 :
+                     hoursPassed < 36 ? 0.65 : hoursPassed < 48 ? 0.80 :
+                     hoursPassed < 60 ? 0.90 : hoursPassed < 72 ? 0.96 : 1.00;
+
+    const rpeInt = RPE_INT[lastRec.rpe] || RPE_INT[lastRec.diff] || 0.80;
+    const cnsM = CNS_MULT[ex] || 1.0;
+    const eimdM = EIMD_MULT[ex] || 1.0;
+    const penalty = (rpeInt - 0.60) * 0.50;
+    const cnsExtra = (cnsM - 1.0) * 0.18;
+    const eimdExtra = (eimdM - 1.0) * 0.12;
+
+    const cnsScore = Math.max(0.05, Math.min(1.0, cnsBase - penalty - cnsExtra));
+    const muscleScore = Math.max(0.05, Math.min(1.0, muscleBase - penalty - eimdExtra));
+    const overallScore = Math.min(cnsScore, muscleScore);
+
+    totalCns += cnsScore;
+    totalMuscle += muscleScore;
+    count++;
+
+    const pct = Math.round(overallScore * 100);
+    const cls = pct >= 70 ? 'green' : pct >= 40 ? 'yellow' : 'red';
+    pills.innerHTML += `<span class="pill ${cls}" title="${ex}: ЦНС ${Math.round(cnsScore*100)}% Мыш ${Math.round(muscleScore*100)}%">${ex.split(' ')[0]} ${pct}%</span>`;
   });
+
+  // Overall recovery
+  const avgCns = count ? totalCns / count : 1.0;
+  const avgMuscle = count ? totalMuscle / count : 1.0;
+  const overall = Math.round(Math.min(avgCns, avgMuscle) * 100);
+
+  $('recovery-pct').textContent = overall;
+  const offset = 314 - (314 * overall / 100);
+  $('recovery-circle').style.strokeDashoffset = offset;
+
+  let cnsLabel = Math.round(avgCns * 100);
+  let musLabel = Math.round(avgMuscle * 100);
+  $('recovery-status').textContent = overall >= 90 ? `✅ Готов к рекордам! (ЦНС ${cnsLabel}% | Мышцы ${musLabel}%)` :
+    overall >= 70 ? `🟡 Суперкомпенсация идёт (ЦНС ${cnsLabel}% | Мышцы ${musLabel}%)` :
+    overall >= 45 ? `⚠️ Неполное восстановление (ЦНС ${cnsLabel}% | Мышцы ${musLabel}%)` :
+    `🔴 Нужен отдых (ЦНС ${cnsLabel}% | Мышцы ${musLabel}%)`;
 }
 
 function renderLastWorkout() {
@@ -359,6 +412,8 @@ function renderAnalytics() {
   renderVolumeChart();
   renderVolumeBreakdown();
   renderPlateauList();
+  renderVolumeTrend();
+  renderTop3Progress();
 }
 
 function selectAnalyticsEx(ex, el) {
@@ -425,6 +480,60 @@ function renderPlateauList() {
     div.innerHTML += `<div class="plateau-item ${isPlat ? 'warning' : 'ok'}"><div class="plateau-ex">${isPlat ? '⚠️' : '✅'} ${ex}</div><div class="plateau-detail">${isPlat ? 'Плато! Нет прогресса более 21 дня' : 'Прогресс есть — продолжай!'} (1ПМ: ${cur}кг)</div></div>`;
   });
   if (!div.innerHTML) div.innerHTML = '<p class="empty-state">Недостаточно данных</p>';
+}
+
+function renderVolumeTrend() {
+  const ws = DB.workouts || [];
+  const now = new Date();
+  const w1Start = new Date(now - 7 * 86400000);
+  const w2Start = new Date(now - 14 * 86400000);
+  let tThis = 0, tPrev = 0, sThis = 0, sPrev = 0;
+  ws.forEach(w => {
+    const d = parseDate(w.date);
+    if (!d) return;
+    const t = (w.weight || 0) * (w.reps || 0);
+    if (d >= w1Start) { tThis += t; sThis++; }
+    else if (d >= w2Start) { tPrev += t; sPrev++; }
+  });
+  const div = $('volume-trend');
+  if (!div) return;
+  if (!sThis && !sPrev) { div.innerHTML = '<p class="empty-state">Недостаточно данных</p>'; return; }
+  const trendPct = tPrev > 0 ? ((tThis - tPrev) / tPrev * 100).toFixed(1) : null;
+  const arrow = trendPct === null ? '—' : trendPct > 0 ? `📈 +${trendPct}%` : `📉 ${trendPct}%`;
+  const cls = trendPct === null ? '' : trendPct > 0 ? 'color:#00e5c8' : 'color:#ff6b6b';
+  div.innerHTML = `
+    <div class="hist-row"><span>📊 Эта неделя</span><span class="hist-val">${Math.round(tThis / 1000 * 10) / 10} т (${sThis} подх)</span></div>
+    <div class="hist-row"><span>📅 Прошлая неделя</span><span class="hist-val">${Math.round(tPrev / 1000 * 10) / 10} т (${sPrev} подх)</span></div>
+    <div class="hist-row"><span>📈 Тренд</span><span class="hist-val" style="${cls}">${arrow}</span></div>`;
+}
+
+function renderTop3Progress() {
+  const ws = DB.workouts || [];
+  const now = new Date();
+  const cutoff30 = new Date(now - 30 * 86400000);
+  const recent = ws.filter(w => { const d = parseDate(w.date); return d && d >= cutoff30; });
+  const older  = ws.filter(w => { const d = parseDate(w.date); return d && d < cutoff30; });
+  const exs = [...new Set(recent.map(w => w.exercise))];
+  const progress = [];
+  exs.forEach(ex => {
+    const curVals = recent.filter(w => w.exercise === ex && w.weight > 0).map(w => epley(w.weight, w.reps));
+    if (!curVals.length) return;
+    const cur1rm = Math.max(...curVals);
+    const oldVals = older.filter(w => w.exercise === ex && w.weight > 0).map(w => epley(w.weight, w.reps));
+    if (!oldVals.length) return;
+    const old1rm = Math.max(...oldVals);
+    if (old1rm > 0) progress.push({ ex, pct: (cur1rm - old1rm) / old1rm * 100, cur1rm });
+  });
+  progress.sort((a, b) => b.pct - a.pct);
+  const div = $('top3-progress');
+  if (!div) return;
+  const medals = ['🥇','🥈','🥉'];
+  if (!progress.length) { div.innerHTML = '<p class="empty-state">Недостаточно данных для сравнения</p>'; return; }
+  div.innerHTML = progress.slice(0, 3).map((p, i) => {
+    const sign = p.pct >= 0 ? '+' : '';
+    const cls = p.pct >= 0 ? 'color:#00e5c8' : 'color:#ff6b6b';
+    return `<div class="pr-item"><span class="pr-medal">${medals[i]}</span><div class="pr-info"><div class="pr-ex">${p.ex}</div><div class="pr-val">1ПМ: ${p.cur1rm} кг</div></div><span class="pr-num" style="${cls}">${sign}${p.pct.toFixed(1)}%</span></div>`;
+  }).join('');
 }
 
 // ── Profile ──
