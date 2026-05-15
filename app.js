@@ -608,7 +608,6 @@ function renderProfile() {
   const tonnage = ws.reduce((s, w) => s + (w.weight || 0) * (w.reps || 0), 0);
   const sets = ws.length;
   $('history-summary').innerHTML = `<div class="hist-row"><span>🗓 Тренировочных дней</span><span class="hist-val">${days}</span></div><div class="hist-row"><span>🔢 Всего подходов</span><span class="hist-val">${sets}</span></div><div class="hist-row"><span>🏗 Общий тоннаж</span><span class="hist-val">${(tonnage / 1000).toFixed(1)} т</span></div>`;
-  const bw = body.weight || 75;
   const records = {};
   ws.filter(w => w.weight > 0).forEach(w => { const e = epley(w.weight, w.reps); if (!records[w.exercise] || e > records[w.exercise]) records[w.exercise] = e; });
   const stds = [['Жим лёжа', [0.75, 1.25, 1.5]], ['Присед', [1.0, 1.5, 2.0]], ['Становая тяга', [1.25, 1.75, 2.5]]];
