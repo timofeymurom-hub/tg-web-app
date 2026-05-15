@@ -5,6 +5,7 @@ if (tg) { tg.ready(); tg.expand(); }
 const API = 'https://kABACh0k.pythonanywhere.com/api'; // замени на URL своего сервера
 let DB = { workouts: [], profile: {}, body: [] };
 let currentTab = 'dashboard';
+let diaryDays = 7; // Сохраняем текущий фильтр дневника
 let workout = { exercise: '', date: '', sets: [], rpe: 'Легко', weight: 80, reps: 8 };
 
 // ── Helpers ──
@@ -25,7 +26,7 @@ function switchTab(name) {
   document.querySelector(`[data-tab="${name}"]`).classList.add('active');
   currentTab = name;
   if (name === 'dashboard') renderDashboard();
-  else if (name === 'diary') renderDiary(7);
+  else if (name === 'diary') renderDiary(diaryDays);
   else if (name === 'analytics') renderAnalytics();
   else if (name === 'profile') renderProfile();
 }
@@ -375,6 +376,7 @@ async function saveWorkout() {
 
 // ── Diary ──
 function filterDiary(days, el) {
+  diaryDays = days; // Запоминаем выбранный фильтр
   document.querySelectorAll('.diary-filter .chip').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
   renderDiary(days);
@@ -449,14 +451,11 @@ function renderDiary(days) {
 async function deleteHistorySet(id, event) {
   if (event) event.stopPropagation();
   if (!confirm('🗑 Удалить этот подход?')) return;
-  deletedIds.push(id);
+  deletedIds.push(String(id));
   DB.workouts = DB.workouts.filter(w => String(w.id) !== String(id));
+  renderDiary(diaryDays); // Используем сохранённый фильтр
   await saveData();
-  // Перерисовываем дневник с текущим фильтром (по умолчанию 7 дней)
-  const activeDaysBadge = document.querySelector('.diary-chips .active');
-  const days = activeDaysBadge ? parseInt(activeDaysBadge.getAttribute('onclick').match(/\d+/)[0]) : 7;
-  renderDiary(days);
-  showToast('Подход удален');
+  showToast('✅ Подход удалён');
 }
 
 // ── Analytics ──
@@ -596,11 +595,15 @@ function renderProfile() {
   $('profile-name').textContent = tg?.initDataUnsafe?.user?.first_name || profile.name || '—';
   const goals = { hypertrophy: '💪 Гипертрофия', strength: '🏋️ Сила', weight_loss: '🔥 Похудение', endurance: '🏃 Выносливость' };
   $('profile-goal').textContent = goals[profile.goal] || '—';
-  $('p-weight').textContent = body.weight ? body.weight + 'кг' : '—';
+  // Вес тела: API бота сохраняет как bodyweight, веб как weight — проверяем оба
+  const bodyWeight = body.bodyweight || body.weight;
+  $('p-weight').textContent = bodyWeight ? bodyWeight + 'кг' : '—';
   $('p-height').textContent = profile.height ? profile.height + 'см' : '—';
   $('p-fat').textContent = body.fat ? body.fat + '%' : '—';
   const tdee = profile.tdee ? Math.round(profile.tdee) : '—';
   $('p-tdee').textContent = tdee;
+  // Вес тела для нормативов
+  const bw = parseFloat(bodyWeight) || 75;
   const days = [...new Set(ws.map(w => w.date))].length;
   const tonnage = ws.reduce((s, w) => s + (w.weight || 0) * (w.reps || 0), 0);
   const sets = ws.length;
@@ -612,7 +615,7 @@ function renderProfile() {
   const stdDiv = $('strength-standards');
   stdDiv.innerHTML = stds.map(([ex, [n, m, a]]) => {
     const pr = records[ex] || 0;
-    const rat = pr / bw;
+    const rat = bw > 0 ? pr / bw : 0;
     const lvl = rat >= a ? ['Элита', 'elite'] : rat >= m ? ['Продвинутый', 'good'] : rat >= n ? ['Средний', 'ok'] : ['Новичок', 'base'];
     return `<div class="standard-item"><span class="std-label">${ex}</span><span class="std-val">${pr ? pr + 'кг' : '—'}</span><span class="std-badge ${lvl[1]}">${lvl[0]}</span></div>`;
   }).join('');
@@ -626,8 +629,19 @@ function toggleTheme() {
 }
 
 function clearSession() {
-  if (!confirm('Очистить сессию записи?')) return;
+  if (!confirm('Очистить текущую сессию (несохранённые подходы)?')) return;
   workout.sets = [];
+  workout.exercise = '';
+  $('selected-exercise-display').style.display = 'none';
+  document.querySelectorAll('#exercise-chips .ex-chip').forEach(c => c.classList.remove('active'));
+  $('save-btn').style.display = 'none';
+  $('no-weight-cb').checked = false;
+  $('weight-slider').disabled = false;
+  setWeight(80);
+  setReps(8);
+  document.querySelectorAll('.rpe-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.rpe-btn.green')?.classList.add('active');
+  workout.rpe = 'Легко';
   renderSetsLog();
   showToast('🗑 Сессия очищена');
 }
