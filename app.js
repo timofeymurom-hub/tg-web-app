@@ -1,5 +1,5 @@
 // GYM MINI APP — app.js
-const tg = window.Telegram?.WebApp;
+const tg = window.Telegram && window.Telegram.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
 
 const API = 'https://kABACh0k.pythonanywhere.com/api'; // замени на URL своего сервера
@@ -33,7 +33,7 @@ function switchTab(name) {
 
 // ── Load Data ──
 async function loadData() {
-  const uid = tg?.initDataUnsafe?.user?.id;
+  const uid = tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id;
   if (!uid) {
     // Demo mode — load from localStorage
     const saved = localStorage.getItem('gym_db');
@@ -54,7 +54,7 @@ let deletedIds = [];
 
 async function saveData() {
   localStorage.setItem('gym_db', JSON.stringify(DB));
-  const uid = tg?.initDataUnsafe?.user?.id;
+  const uid = tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id;
   if (!uid) return;
   try {
     await fetch(`${API}/save`, { 
@@ -68,10 +68,10 @@ async function saveData() {
 
 // ── Init ──
 function initUI() {
-  const user = tg?.initDataUnsafe?.user;
-  $('greeting').textContent = `💪 Привет, ${user?.first_name || 'Атлет'}!`;
+  const user = tg && tg.initDataUnsafe && tg.initDataUnsafe.user;
+  $('greeting').textContent = `💪 Привет, ${user && user.first_name ? user.first_name : 'Атлет'}!`;
   $('today-date').textContent = new Date().toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
-  $('avatar-letter').textContent = (user?.first_name || 'A')[0].toUpperCase();
+  $('avatar-letter').textContent = (user && user.first_name ? user.first_name : 'A')[0].toUpperCase();
   renderDashboard();
   renderExerciseChips();
   renderQuickWeights();
@@ -510,7 +510,7 @@ function renderVolumeBreakdown() {
   const vol = {};
   ws.forEach(w => { vol[w.exercise] = (vol[w.exercise] || 0) + (w.weight || 0) * (w.reps || 0); });
   const sorted = Object.entries(vol).sort((a, b) => b[1] - a[1]);
-  const max = sorted[0]?.[1] || 1;
+  const max = (sorted[0] && sorted[0][1]) || 1;
   const div = $('volume-breakdown');
   div.innerHTML = sorted.slice(0, 6).map(([ex, v]) => `<div class="breakdown-item"><span class="breakdown-label">${ex}</span><div class="breakdown-bar-wrap"><div class="breakdown-bar" style="width:${v / max * 100}%"></div></div><span class="breakdown-val">${Math.round(v / 1000)}т</span></div>`).join('');
 }
@@ -592,7 +592,8 @@ function renderProfile() {
   const ws = DB.workouts || [];
   const profile = DB.profile || {};
   const body = (DB.body || []).slice(-1)[0] || {};
-  $('profile-name').textContent = tg?.initDataUnsafe?.user?.first_name || profile.name || '—';
+  const userName = tg && tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.first_name;
+  $('profile-name').textContent = userName || profile.name || '—';
   const goals = { hypertrophy: '💪 Гипертрофия', strength: '🏋️ Сила', weight_loss: '🔥 Похудение', endurance: '🏃 Выносливость' };
   $('profile-goal').textContent = goals[profile.goal] || '—';
   // Вес тела: API бота сохраняет как bodyweight, веб как weight — проверяем оба
@@ -639,7 +640,8 @@ function clearSession() {
   setWeight(80);
   setReps(8);
   document.querySelectorAll('.rpe-btn').forEach(b => b.classList.remove('active'));
-  document.querySelector('.rpe-btn.green')?.classList.add('active');
+  const greenBtn = document.querySelector('.rpe-btn.green');
+  if (greenBtn) greenBtn.classList.add('active');
   workout.rpe = 'Легко';
   renderSetsLog();
   showToast('🗑 Сессия очищена');
