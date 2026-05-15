@@ -346,9 +346,11 @@ body {
 }
 .diary-tonnage { font-size: 0.75rem; color: var(--text2); margin-left: auto; }
 .diary-exercise { padding: 10px 14px; border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--border); margin-bottom: 4px; }
-.diary-ex-name { font-weight: 600; font-size: 0.9rem; margin-bottom: 4px; }
-.diary-sets-row { display: flex; gap: 6px; flex-wrap: wrap; }
-.diary-set-badge { font-size: 0.72rem; padding: 2px 8px; border-radius: 20px; background: rgba(124,92,255,0.15); border: 1px solid rgba(124,92,255,0.3); }
+.diary-ex-name { font-weight: 600; font-size: 0.9rem; margin-bottom: 4px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+.diary-ex-meta { font-size: 0.75rem; color: var(--text2); font-weight: 400; }
+.diary-sets-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+.diary-set-badge { font-size: 0.72rem; padding: 2px 8px; border-radius: 20px; background: rgba(124,92,255,0.15); border: 1px solid rgba(124,92,255,0.3); cursor: pointer; transition: background .15s; }
+.diary-set-badge:hover { background: rgba(255,77,109,0.25); border-color: rgba(255,77,109,0.5); }
 
 /* ── Charts ── */
 .chart-card { padding: 16px; margin-bottom: 16px; }

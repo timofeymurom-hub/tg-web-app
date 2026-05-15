@@ -330,7 +330,8 @@ function updateE1RM() {
 function addSet() {
   if (!workout.exercise) { showToast('❌ Выбери упражнение!'); return; }
   if (!workout.date) workout.date = fmtDate(new Date());
-  const set = { exercise: workout.exercise, date: workout.date, weight: workout.weight, reps: workout.reps, rpe: workout.rpe, set_num: workout.sets.length + 1 };
+  // rpe saved both as rpe (web app) and diff (bot field) for cross-compatibility
+  const set = { exercise: workout.exercise, date: workout.date, weight: workout.weight, reps: workout.reps, rpe: workout.rpe, diff: workout.rpe, set_num: workout.sets.length + 1 };
   workout.sets.push(set);
   renderSetsLog();
   $('save-btn').style.display = 'block';
@@ -357,14 +358,19 @@ function delSet(i) {
 async function saveWorkout() {
   if (!workout.sets.length) { showToast('Нет подходов!'); return; }
   if (!DB.workouts) DB.workouts = [];
-  workout.sets.forEach(s => { s.id = Date.now() + Math.random(); DB.workouts.push(s); });
+  // Assign unique IDs BEFORE pushing to avoid duplicate float IDs
+  const ts = Date.now();
+  workout.sets.forEach((s, i) => { s.id = String(ts + i); DB.workouts.push(s); });
   await saveData();
   showToast('✅ Тренировка сохранена!');
-  workout.sets = [];
+  workout = { exercise: '', date: '', sets: [], rpe: 'Легко', weight: 80, reps: 8 };
   renderSetsLog();
   $('save-btn').style.display = 'none';
+  $('selected-exercise-display').style.display = 'none';
+  document.querySelectorAll('#exercise-chips .ex-chip').forEach(c => c.classList.remove('active'));
   renderExerciseChips();
   renderQuickWeights();
+  renderDashboard();
 }
 
 // ── Diary ──
@@ -378,19 +384,65 @@ function renderDiary(days) {
   const ws = DB.workouts || [];
   const cutoff = days > 0 ? new Date(Date.now() - days * 24 * 3600 * 1000) : new Date(0);
   const filtered = ws.filter(w => { const d = parseDate(w.date); return d && d >= cutoff; });
+  // Group by date → exercise
   const byDate = {};
-  filtered.forEach(w => { if (!byDate[w.date]) byDate[w.date] = {}; if (!byDate[w.date][w.exercise]) byDate[w.date][w.exercise] = []; byDate[w.date][w.exercise].push(w); });
+  filtered.forEach(w => {
+    const d = w.date;
+    if (!byDate[d]) byDate[d] = {};
+    const ex = w.exercise || 'Неизвестно';
+    if (!byDate[d][ex]) byDate[d][ex] = { sets: [], rpe: 'Легко' };
+    byDate[d][ex].sets.push(w);
+    // Track hardest RPE for exercise
+    const rpeRank = { 'Тяжело': 3, 'Средне': 2, 'Средно': 2, 'Легко': 1 };
+    const r = w.rpe || w.diff || 'Легко';
+    if ((rpeRank[r] || 0) >= (rpeRank[byDate[d][ex].rpe] || 0)) byDate[d][ex].rpe = r;
+  });
+  // Compute all-time 1RM records
+  const allRecords = {};
+  ws.filter(w => w.weight > 0).forEach(w => {
+    const e = epley(w.weight, w.reps);
+    if (!allRecords[w.exercise] || e > allRecords[w.exercise]) allRecords[w.exercise] = e;
+  });
   const list = $('diary-list');
   const dates = Object.keys(byDate).sort((a, b) => parseDate(b) - parseDate(a));
   if (!dates.length) { list.innerHTML = '<p class="empty-state">Нет тренировок за период</p>'; return; }
   list.innerHTML = dates.map(date => {
     const exs = byDate[date];
-    const dayTonnage = Object.values(exs).flat().reduce((s, w) => s + (w.weight || 0) * (w.reps || 0), 0);
-    const exHtml = Object.entries(exs).map(([ex, sets]) => {
-      const badges = sets.map(s => `<span class="diary-set-badge" onclick="deleteHistorySet('${s.id}', event)" title="Удалить подход" style="cursor:pointer">${s.weight > 0 ? s.weight + 'кг' : 'BW'}×${s.reps} ✖</span>`).join('');
-      return `<div class="diary-exercise"><div class="diary-ex-name">${ex}</div><div class="diary-sets-row">${badges}</div></div>`;
+    const dayTonnage = Object.values(exs).flatMap(e => e.sets).reduce((s, w) => s + (w.weight || 0) * (w.reps || 0), 0);
+    const numSets = Object.values(exs).reduce((s, e) => s + e.sets.length, 0);
+    const dayRpeMax = Object.values(exs).reduce((max, e) => {
+      const rk = { 'Тяжело': 3, 'Средне': 2, 'Средно': 2, 'Легко': 1 };
+      return (rk[e.rpe] || 0) > (rk[max] || 0) ? e.rpe : max;
+    }, 'Легко');
+    const dayColor = dayRpeMax === 'Тяжело' ? '#ff6b6b' : dayRpeMax === 'Средне' ? '#ffd93d' : '#00e5c8';
+    // Get day of week from date
+    const pd = parseDate(date);
+    const dayNames = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+    const dayName = pd ? dayNames[pd.getDay()] : '';
+    const exHtml = Object.entries(exs).map(([ex, exData]) => {
+      const { sets, rpe } = exData;
+      const exTonnage = sets.reduce((s, w) => s + (w.weight || 0) * (w.reps || 0), 0);
+      const maxE1rm = sets.filter(w => w.weight > 0).reduce((m, w) => Math.max(m, epley(w.weight, w.reps)), 0);
+      const isRecord = maxE1rm > 0 && allRecords[ex] && Math.abs(maxE1rm - allRecords[ex]) < 0.1;
+      const rpeEmoji = rpe === 'Тяжело' ? '🔴' : rpe === 'Средне' ? '🟡' : '🟢';
+      const tonnageStr = exTonnage > 0 ? ` · ${Math.round(exTonnage)} кг` : '';
+      const e1rmStr = maxE1rm > 0 ? ` · 1ПМ≈${maxE1rm}кг${isRecord ? ' 🏆' : ''}` : '';
+      const badges = sets.map(s => {
+        const wt = s.weight > 0 ? `${s.weight}кг×${s.reps}` : `BW×${s.reps}`;
+        return `<span class="diary-set-badge" onclick="deleteHistorySet('${s.id}', event)" title="Удалить подход">${wt} ✖</span>`;
+      }).join('');
+      return `<div class="diary-exercise">
+        <div class="diary-ex-name">${rpeEmoji} ${ex}<span class="diary-ex-meta">${tonnageStr}${e1rmStr}</span></div>
+        <div class="diary-sets-row">${badges}</div>
+      </div>`;
     }).join('');
-    return `<div class="diary-day"><div class="diary-day-header">📅 ${date}<span class="diary-tonnage">${Math.round(dayTonnage)} кг</span></div>${exHtml}</div>`;
+    return `<div class="diary-day">
+      <div class="diary-day-header" style="border-left: 3px solid ${dayColor}; padding-left: 8px">
+        <span>📅 ${dayName} ${date}</span>
+        <span class="diary-tonnage">${numSets} подх · ${Math.round(dayTonnage)} кг</span>
+      </div>
+      ${exHtml}
+    </div>`;
   }).join('');
 }
 
