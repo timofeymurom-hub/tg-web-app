@@ -599,9 +599,36 @@ function renderProfile() {
   // Вес тела: API бота сохраняет как bodyweight, веб как weight — проверяем оба
   const bodyWeight = body.bodyweight || body.weight;
   $('p-weight').textContent = bodyWeight ? bodyWeight + 'кг' : '—';
-  $('p-height').textContent = profile.height ? profile.height + 'см' : '—';
-  $('p-fat').textContent = body.fat ? body.fat + '%' : '—';
-  const tdee = profile.tdee ? Math.round(profile.tdee) : '—';
+  const heightCm = profile.height_cm || profile.height || 0;
+  $('p-height').textContent = heightCm ? heightCm + 'см' : '—';
+  let fatPct = '—';
+  if (body.measurements && heightCm) {
+    const m = body.measurements;
+    const waist = parseFloat(m.waist_cm);
+    const neck = parseFloat(m.neck_cm);
+    const hips = parseFloat(m.hips_cm || 0);
+    const h = parseFloat(heightCm);
+    const gender = profile.gender || 'male';
+    if (waist && neck) {
+      if (gender === 'male') {
+        const d = waist - neck;
+        if (d > 0) fatPct = (495 / (1.0324 - 0.19077 * Math.log10(d) + 0.15456 * Math.log10(h)) - 450).toFixed(1);
+      } else {
+        const d = waist + hips - neck;
+        if (d > 0) fatPct = (495 / (1.29579 - 0.35004 * Math.log10(d) + 0.22100 * Math.log10(h)) - 450).toFixed(1);
+      }
+    }
+  }
+  $('p-fat').textContent = fatPct !== '—' ? fatPct + '%' : (body.fat ? body.fat + '%' : '—');
+  let tdee = '—';
+  if (bodyWeight && heightCm && profile.birth_year) {
+    const age = Math.max(1, new Date().getFullYear() - profile.birth_year);
+    const g = profile.gender || 'male';
+    const bmr = 10 * parseFloat(bodyWeight) + 6.25 * heightCm - 5 * age + (g === 'male' ? 5 : -161);
+    const days = parseInt(profile.training_days_per_week || 3);
+    const mult = days <= 3 ? 1.375 : (days <= 5 ? 1.55 : 1.725);
+    tdee = Math.round(bmr * mult);
+  }
   $('p-tdee').textContent = tdee;
   // Вес тела для нормативов
   const bw = parseFloat(bodyWeight) || 75;
