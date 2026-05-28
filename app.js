@@ -365,6 +365,10 @@ async function saveWorkout() {
   await saveData();
   showToast('✅ Тренировка сохранена!');
   workout = { exercise: '', date: '', sets: [], rpe: 'Легко', weight: 80, reps: 8 };
+  // Сбрасываем кнопки сложности в UI на "Легко"
+  document.querySelectorAll('.rpe-btn').forEach(b => b.classList.remove('active'));
+  const greenBtn = document.querySelector('.rpe-btn.green');
+  if (greenBtn) greenBtn.classList.add('active');
   renderSetsLog();
   $('save-btn').style.display = 'none';
   $('selected-exercise-display').style.display = 'none';
@@ -416,7 +420,7 @@ function renderDiary(days) {
       const rk = { 'Тяжело': 3, 'Средне': 2, 'Средно': 2, 'Легко': 1 };
       return (rk[e.rpe] || 0) > (rk[max] || 0) ? e.rpe : max;
     }, 'Легко');
-    const dayColor = dayRpeMax === 'Тяжело' ? '#ff6b6b' : dayRpeMax === 'Средне' ? '#ffd93d' : '#00e5c8';
+    const dayColor = dayRpeMax === 'Тяжело' ? '#ff4d6d' : dayRpeMax === 'Средне' ? '#ffd700' : '#00e5c8';
     // Get day of week from date
     const pd = parseDate(date);
     const dayNames = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
@@ -426,24 +430,53 @@ function renderDiary(days) {
       const exTonnage = sets.reduce((s, w) => s + (w.weight || 0) * (w.reps || 0), 0);
       const maxE1rm = sets.filter(w => w.weight > 0).reduce((m, w) => Math.max(m, epley(w.weight, w.reps)), 0);
       const isRecord = maxE1rm > 0 && allRecords[ex] && Math.abs(maxE1rm - allRecords[ex]) < 0.1;
-      const rpeEmoji = rpe === 'Тяжело' ? '🔴' : rpe === 'Средне' ? '🟡' : '🟢';
-      const tonnageStr = exTonnage > 0 ? ` · ${Math.round(exTonnage)} кг` : '';
-      const e1rmStr = maxE1rm > 0 ? ` · 1ПМ≈${maxE1rm}кг${isRecord ? ' 🏆' : ''}` : '';
-      const badges = sets.map(s => {
+      
+      const rpeClass = rpe === 'Тяжело' ? 'rpe-badge-hard' : rpe === 'Средне' ? 'rpe-badge-medium' : 'rpe-badge-easy';
+      const rpeText = rpe === 'Тяжело' ? '🔴 Тяжело' : rpe === 'Средне' ? '🟡 Средне' : '🟢 Легко';
+
+      const recordHtml = isRecord ? `<span class="diary-ex-record-badge">🏆 Рекорд</span>` : '';
+      let metaStr = '';
+      if (exTonnage > 0) metaStr += `🏋️‍♂️ ${Math.round(exTonnage)} кг`;
+      if (maxE1rm > 0) metaStr += (metaStr ? ' · ' : '') + `⚡ 1ПМ≈${maxE1rm}кг`;
+
+      const badges = sets.map((s, idx) => {
         const wt = s.weight > 0 ? `${s.weight}кг×${s.reps}` : `BW×${s.reps}`;
-        return `<span class="diary-set-badge" onclick="deleteHistorySet('${s.id}', event)" title="Удалить подход">${wt} ✖</span>`;
+        return `<div class="diary-set-pill">
+          <span class="diary-set-pill-num">${idx + 1}</span>
+          <span>${wt}</span>
+          <span class="diary-set-pill-del" onclick="deleteHistorySet('${s.id}', event)" title="Удалить подход">&times;</span>
+        </div>`;
       }).join('');
+
       return `<div class="diary-exercise">
-        <div class="diary-ex-name">${rpeEmoji} ${ex}<span class="diary-ex-meta">${tonnageStr}${e1rmStr}</span></div>
-        <div class="diary-sets-row">${badges}</div>
+        <div class="diary-ex-header">
+          <div class="diary-ex-title-wrap">
+            <span class="diary-ex-title">${ex}</span>
+            <div class="diary-ex-meta-info">
+              <span>${metaStr}</span>
+              ${recordHtml}
+            </div>
+          </div>
+          <span class="diary-ex-rpe-badge ${rpeClass}">${rpeText}</span>
+        </div>
+        <div class="diary-sets-grid">${badges}</div>
       </div>`;
     }).join('');
-    return `<div class="diary-day">
-      <div class="diary-day-header" style="border-left: 3px solid ${dayColor}; padding-left: 8px">
-        <span>📅 ${dayName} ${date}</span>
-        <span class="diary-tonnage">${numSets} подх · ${Math.round(dayTonnage)} кг</span>
+
+    return `<div class="diary-day glass">
+      <div class="diary-day-header">
+        <div class="diary-day-date-box">
+          <span class="diary-day-weekday" style="background-color: ${dayColor}">${dayName}</span>
+          <span class="diary-day-date">${date}</span>
+        </div>
+        <div class="diary-day-stats">
+          <span class="diary-day-sets-count">${numSets} подходов</span>
+          <span class="diary-day-tonnage-sum">${Math.round(dayTonnage)} кг</span>
+        </div>
       </div>
-      ${exHtml}
+      <div class="diary-exercises-list">
+        ${exHtml}
+      </div>
     </div>`;
   }).join('');
 }
