@@ -589,3 +589,179 @@ body {
 
 /* ── SVG Gradient Defs ── */
 svg defs { display: block; }
+
+/* ── Health Tracker Card ── */
+.health-tracker-card {
+  padding: 16px;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, rgba(0,229,200,0.1), rgba(124,92,255,0.05));
+  border: 1px solid rgba(0,229,200,0.25);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.health-tracker-card:active {
+  transform: scale(0.98);
+}
+.tracker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  font-size: 0.88rem;
+  margin-bottom: 10px;
+}
+.tracker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  text-align: center;
+}
+.tracker-item {
+  font-size: 0.8rem;
+  color: var(--text);
+  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.tracker-item span {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--accent3);
+}
+
+/* Modal overlay styling */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(13,13,26,0.85);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+}
+.modal-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 20px;
+  box-shadow: var(--shadow);
+  border-radius: var(--radius);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.modal-header h3 {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text);
+}
+.modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.input-group label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text2);
+}
+.mood-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mood-btn {
+  flex: 1;
+  min-width: 90px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.mood-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(124,92,255,0.3);
+}
+
+/* ── PubMed Hub ── */
+.pubmed-hub-card {
+  padding: 16px;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, rgba(124,92,255,0.08), rgba(255,92,138,0.05));
+  border: 1px solid rgba(124,92,255,0.25);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.pubmed-hub-card:active {
+  transform: scale(0.98);
+}
+.pubmed-hub-info h3 {
+  font-size: 0.92rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.pubmed-hub-info p {
+  font-size: 0.76rem;
+  color: var(--text2);
+}
+.pubmed-search-row {
+  width: 100%;
+}
+.pubmed-topic-card {
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  transition: all 0.2s;
+}
+.pubmed-topic-title {
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.pubmed-topic-summary {
+  font-size: 0.78rem;
+  color: var(--text2);
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+.pubmed-topic-study {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent3);
+}
+.pubmed-topic-details {
+  font-size: 0.74rem;
+  color: var(--text2);
+  background: rgba(0,0,0,0.15);
+  padding: 6px 10px;
+  border-radius: 6px;
+  margin-top: 6px;
+  border-left: 2px solid var(--accent);
+}

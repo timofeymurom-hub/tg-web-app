@@ -105,6 +105,7 @@ function renderDashboard() {
   renderRecovery();
   renderLastWorkout();
   renderPRList();
+  renderHealthTracker();
 }
 
 function renderRecovery() {
@@ -662,7 +663,23 @@ function renderProfile() {
     const mult = days <= 3 ? 1.375 : (days <= 5 ? 1.55 : 1.725);
     tdee = Math.round(bmr * mult);
   }
-  $('p-tdee').textContent = tdee;
+  if (tdee !== '—') {
+    const goal = profile.goal || 'hypertrophy';
+    let target = tdee;
+    let protein = Math.round(bw * 1.6);
+    if (goal === 'hypertrophy') {
+      target = tdee + 300;
+      protein = Math.round(bw * 2.0);
+    } else if (goal === 'weight_loss') {
+      target = tdee - 400;
+      protein = Math.round(bw * 1.8);
+    }
+    const fats = Math.round((target * 0.25) / 9);
+    const carbs = Math.round((target - protein * 4 - fats * 9) / 4);
+    $('p-tdee').innerHTML = `<span style="font-size:1.15rem;font-weight:800;">${target} ккал</span><small style="font-size:0.62rem;display:block;color:var(--text2);margin-top:2px;font-weight:600;letter-spacing:0.02em;">${protein}г Б · ${fats}г Ж · ${carbs}г У</small>`;
+  } else {
+    $('p-tdee').textContent = '—';
+  }
   // Вес тела для нормативов
   const bw = parseFloat(bodyWeight) || 75;
   const days = [...new Set(ws.map(w => w.date))].length;
@@ -714,6 +731,176 @@ function loadChartJS(cb) {
   s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js';
   s.onload = cb;
   document.head.appendChild(s);
+}
+
+// ── Health Tracker & PubMed Hub functions ──
+let selectedMood = '';
+
+function renderHealthTracker() {
+  const todayStr = fmtDate(new Date());
+  const entries = DB.body || [];
+  const todayEntry = entries.find(e => e.date === todayStr);
+  const lastEntry = entries.length ? entries[entries.length - 1] : {};
+
+  const weight = (todayEntry && (todayEntry.bodyweight || todayEntry.weight)) || (lastEntry && (lastEntry.bodyweight || lastEntry.weight)) || '—';
+  const sleep = (todayEntry && todayEntry.sleep_hours) !== undefined && todayEntry.sleep_hours !== null ? todayEntry.sleep_hours : '—';
+  const water = (todayEntry && todayEntry.water_l) !== undefined && todayEntry.water_l !== null ? todayEntry.water_l : '—';
+  const cal = (todayEntry && todayEntry.calories) || '—';
+
+  $('track-weight').textContent = weight;
+  $('track-sleep').textContent = sleep;
+  $('track-water').textContent = water;
+  $('track-cal').textContent = cal;
+}
+
+function openHealthModal() {
+  const todayStr = fmtDate(new Date());
+  const entries = DB.body || [];
+  const todayEntry = entries.find(e => e.date === todayStr) || {};
+  const lastEntry = entries.length ? entries[entries.length - 1] : {};
+
+  $('h-weight').value = todayEntry.bodyweight || todayEntry.weight || lastEntry.bodyweight || lastEntry.weight || '';
+  $('h-sleep').value = todayEntry.sleep_hours !== undefined ? todayEntry.sleep_hours : '';
+  $('h-water').value = todayEntry.water_l !== undefined ? todayEntry.water_l : '';
+  $('h-calories').value = todayEntry.calories || '';
+  $('h-protein').value = todayEntry.protein_g || '';
+  
+  selectedMood = todayEntry.mood || '';
+  document.querySelectorAll('.mood-btn').forEach(btn => {
+    btn.classList.remove('active');
+    if (selectedMood && btn.textContent.includes(selectedMood)) btn.classList.add('active');
+  });
+  
+  $('health-modal').style.display = 'flex';
+}
+
+function closeHealthModal() {
+  $('health-modal').style.display = 'none';
+}
+
+function selectMood(mood, el) {
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  selectedMood = mood;
+}
+
+async function saveHealthParams() {
+  const weight = parseFloat($('h-weight').value) || null;
+  const sleep = parseFloat($('h-sleep').value) || null;
+  const water = parseFloat($('h-water').value) || null;
+  const calories = parseInt($('h-calories').value) || 0;
+  const protein = parseInt($('h-protein').value) || 0;
+
+  if (!DB.body) DB.body = [];
+
+  const todayStr = fmtDate(new Date());
+  let entry = DB.body.find(e => e.date === todayStr);
+  if (!entry) {
+    entry = {
+      id: String(Date.now()),
+      date: todayStr,
+      ts: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+      bodyweight: weight,
+      calories: calories,
+      protein_g: protein,
+      water_l: water,
+      sleep_hours: sleep,
+      mood: selectedMood,
+      measurements: {}
+    };
+    DB.body.push(entry);
+  } else {
+    if (weight !== null) entry.bodyweight = weight;
+    if (sleep !== null) entry.sleep_hours = sleep;
+    if (water !== null) entry.water_l = water;
+    entry.calories = calories;
+    entry.protein_g = protein;
+    entry.mood = selectedMood;
+  }
+
+  await saveData();
+  showToast('✅ Показатели здоровья обновлены!');
+  closeHealthModal();
+  renderDashboard();
+  renderProfile();
+}
+
+// ── PubMed Articles ──
+const PUBMED_ARTICLES = [
+  {
+    title: "📊 Объём тренировок: Сколько подходов нужно?",
+    summary: "Научный консенсус: 10-20 рабочих подходов в неделю на мышечную группу обеспечивают максимальную гипертрофию. Выше 20 — рост замедляется из-за избыточного повреждения мышц.",
+    study: "Schoenfeld BJ et al. (2017) | PMID: 27433992",
+    details: "Мета-анализ 15 РКИ доказал доза-отклик: >10 подходов/нед дают +9.8% роста мышц по сравнению с +5.4% при <5 подходов/нед."
+  },
+  {
+    title: "🥩 Норма белка для роста мышц",
+    summary: "Оптимальный диапазон потребления белка для максимизации мышечного синтеза составляет 1.6 - 2.2 г на кг веса тела в сутки.",
+    study: "Morton RW et al. (2018) | PMID: 28698222",
+    details: "Мета-анализ 49 исследований с участием 1863 атлетов показал, что потребление выше 1.62 г/кг перестает давать статистически значимый прирост сухой мышечной массы."
+  },
+  {
+    title: "😴 Влияние сна на мышечную массу и жир",
+    summary: "Дефицит сна переключает потерю веса со снижения жира на потерю мышечной массы, снижает тестостерон и замедляет восстановление.",
+    study: "Nedeltcheva AV et al. (2010) | PMID: 20921542",
+    details: "При 5.5 часах сна (в сравнении с 8.5 часами) потеря жира снизилась на 55%, а потеря сухой мышечной массы увеличилась на 60% при одинаковом дефиците калорий."
+  },
+  {
+    title: "🔄 Частота тренировок: 1 или 3 раза в неделю?",
+    summary: "Если недельный объём подходов одинаков, частота проработки мышечной группы (1, 2 или 3 раза) имеет второстепенное значение для гипертрофии.",
+    study: "Schoenfeld BJ et al. (2019) | PMID: 30558493",
+    details: "РКИ показало, что разделение объёма на 3 тренировки в неделю дает схожие результаты с выполнением всего объёма за 1 тренировку при условии равенства недельного тоннажа."
+  },
+  {
+    title: "⏱ Время отдыха между подходами",
+    summary: "Отдых от 2-3 минут превосходит короткий отдых (1 минута) как в увеличении мышечной силы, так и в долгосрочной гипертрофии.",
+    study: "Schoenfeld BJ et al. (2016) | PMID: 26605387",
+    details: "Более длинный отдых позволяет выполнить больший тренировочный объём (больше повторений с более тяжелым весом) в последующих подходах."
+  },
+  {
+    title: "💧 Вода и силовая выносливость",
+    summary: "Обезвоживание даже на 2% от веса тела снижает работоспособность в подходах, ухудшает передачу нервных импульсов и повышает риск травм.",
+    study: "Judelson DA et al. (2007) | PMID: 17909403",
+    details: "Исследование показало, что дегидратация снижает силовые показатели на 5-10% и повышает концентрацию кортизола (стрессового гормона)."
+  }
+];
+
+function openPubmedModal() {
+  $('pubmed-modal').style.display = 'flex';
+  renderPubmedArticles();
+}
+
+function closePubmedModal() {
+  $('pubmed-modal').style.display = 'none';
+}
+
+function renderPubmedArticles(filter = '') {
+  const query = filter.toLowerCase().trim();
+  const list = $('pubmed-topics-list');
+  const filtered = PUBMED_ARTICLES.filter(a => 
+    a.title.toLowerCase().includes(query) || 
+    a.summary.toLowerCase().includes(query) || 
+    a.details.toLowerCase().includes(query)
+  );
+
+  if (!filtered.length) {
+    list.innerHTML = '<p class="empty-state">Исследований не найдено</p>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(a => `
+    <div class="pubmed-topic-card">
+      <div class="pubmed-topic-title">${a.title}</div>
+      <div class="pubmed-topic-summary">${a.summary}</div>
+      <div class="pubmed-topic-study">🔍 Исследование: ${a.study}</div>
+      <div class="pubmed-topic-details">${a.details}</div>
+    </div>
+  `).join('');
+}
+
+function filterPubmed() {
+  const q = $('pubmed-search').value;
+  renderPubmedArticles(q);
 }
 
 // ── Start ──
