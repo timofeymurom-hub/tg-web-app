@@ -765,3 +765,29 @@ svg defs { display: block; }
   margin-top: 6px;
   border-left: 2px solid var(--accent);
 }
+
+/* Premium styled numeric input fields for Weight and Reps */
+.val-input {
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 2rem;
+  font-weight: 900;
+  text-align: center;
+  width: 90px;
+  outline: none;
+  padding: 0;
+  margin: 0;
+}
+.val-input:focus {
+  color: var(--accent);
+}
+.val-input::-webkit-outer-spin-button,
+.val-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.val-input[type=number] {
+  -moz-appearance: textfield;
+}

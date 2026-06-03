@@ -280,41 +280,63 @@ function renderQuickWeights() {
 
 function updateWeight(v) {
   workout.weight = +v;
-  $('weight-display').textContent = +v === 0 ? '0' : v;
+  $('weight-input').value = +v === 0 ? '0' : v;
   updateE1RM();
 }
 
 function adjustWeight(delta) {
   const nw = Math.max(0, Math.round((workout.weight + delta) * 10) / 10);
   workout.weight = nw;
-  $('weight-display').textContent = nw;
+  $('weight-input').value = nw;
   $('weight-slider').value = nw;
   updateE1RM();
 }
 
 function setWeight(v) {
   workout.weight = v;
-  $('weight-display').textContent = v;
+  $('weight-input').value = v;
   $('weight-slider').value = v;
+  updateE1RM();
+}
+
+function updateWeightFromInput(v) {
+  const num = parseFloat(v);
+  workout.weight = isNaN(num) ? 0 : num;
+  $('weight-slider').value = workout.weight;
   updateE1RM();
 }
 
 function toggleNoWeight() {
   const cb = $('no-weight-cb');
-  if (cb.checked) { workout.weight = 0; $('weight-display').textContent = '0'; $('weight-slider').disabled = true; }
-  else { workout.weight = 80; $('weight-display').textContent = '80'; $('weight-slider').disabled = false; }
+  if (cb.checked) { 
+    workout.weight = 0; 
+    $('weight-input').value = '0'; 
+    $('weight-input').disabled = true; 
+    $('weight-slider').disabled = true; 
+  } else { 
+    workout.weight = 80; 
+    $('weight-input').value = '80'; 
+    $('weight-input').disabled = false; 
+    $('weight-slider').disabled = false; 
+  }
   updateE1RM();
 }
 
 function adjustReps(delta) {
   workout.reps = Math.max(1, Math.min(50, workout.reps + delta));
-  $('reps-display').textContent = workout.reps;
+  $('reps-input').value = workout.reps;
   updateE1RM();
 }
 
 function setReps(v) {
   workout.reps = v;
-  $('reps-display').textContent = v;
+  $('reps-input').value = v;
+  updateE1RM();
+}
+
+function updateRepsFromInput(v) {
+  const num = parseInt(v);
+  workout.reps = isNaN(num) ? 1 : num;
   updateE1RM();
 }
 
@@ -690,6 +712,8 @@ function renderProfile() {
     }
   }
   $('p-fat').textContent = fatPct !== '—' ? fatPct + '%' : (body.fat ? body.fat + '%' : '—');
+  // Вес тела для нормативов и БЖУ
+  const bw = parseFloat(bodyWeight) || 75;
   let tdee = '—';
   if (bodyWeight && heightCm && profile.birth_year) {
     const age = Math.max(1, new Date().getFullYear() - profile.birth_year);
@@ -716,8 +740,6 @@ function renderProfile() {
   } else {
     $('p-tdee').textContent = '—';
   }
-  // Вес тела для нормативов
-  const bw = parseFloat(bodyWeight) || 75;
   const days = [...new Set(ws.map(w => w.date))].length;
   const tonnage = ws.reduce((s, w) => s + (w.weight || 0) * (w.reps || 0), 0);
   const sets = ws.length;
@@ -749,6 +771,7 @@ function clearSession() {
   document.querySelectorAll('#exercise-chips .ex-chip').forEach(c => c.classList.remove('active'));
   $('save-btn').style.display = 'none';
   $('no-weight-cb').checked = false;
+  $('weight-input').disabled = false;
   $('weight-slider').disabled = false;
   setWeight(80);
   setReps(8);

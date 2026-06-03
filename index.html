@@ -159,7 +159,7 @@
     <div class="weight-display glass">
       <button class="adj-btn" onclick="adjustWeight(-2.5)">−2.5</button>
       <div class="val-center">
-        <span id="weight-display">80</span>
+        <input type="number" id="weight-input" value="80" step="0.1" min="0" max="999" class="val-input" oninput="updateWeightFromInput(this.value)"/>
         <small>кг</small>
       </div>
       <button class="adj-btn" onclick="adjustWeight(+2.5)">+2.5</button>
@@ -177,7 +177,7 @@
   <div class="weight-display glass">
     <button class="adj-btn" onclick="adjustReps(-1)">−1</button>
     <div class="val-center">
-      <span id="reps-display">8</span>
+      <input type="number" id="reps-input" value="8" step="1" min="1" max="99" class="val-input" oninput="updateRepsFromInput(this.value)"/>
       <small>повт.</small>
     </div>
     <button class="adj-btn" onclick="adjustReps(+1)">+1</button>
