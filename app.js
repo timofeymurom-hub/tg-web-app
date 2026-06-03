@@ -40,10 +40,17 @@ async function loadData() {
     if (saved) DB = JSON.parse(saved);
     initUI(); return;
   }
+  
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 2500);
+
   try {
-    const r = await fetch(`${API}/data?uid=${uid}`);
+    const r = await fetch(`${API}/data?uid=${uid}`, { signal: controller.signal });
+    clearTimeout(timeoutId);
     DB = await r.json();
   } catch (e) {
+    clearTimeout(timeoutId);
+    console.warn("API request failed or timed out. Falling back to localStorage.", e);
     const saved = localStorage.getItem('gym_db');
     if (saved) DB = JSON.parse(saved);
   }
@@ -567,6 +574,11 @@ function selectAnalyticsEx(ex, el) {
 }
 
 function render1RMChart(ex) {
+  if (!window.Chart) {
+    $('chart-empty').textContent = '⚠️ График 1ПМ недоступен (ошибка сети/блокировка CDN)';
+    $('chart-empty').style.display = 'block';
+    return;
+  }
   const ws = (DB.workouts || []).filter(w => w.exercise === ex && w.weight > 0);
   const byDate = {};
   ws.forEach(w => { const e = epley(w.weight, w.reps); if (!byDate[w.date] || e > byDate[w.date]) byDate[w.date] = e; });
@@ -583,6 +595,7 @@ function render1RMChart(ex) {
 }
 
 function renderVolumeChart() {
+  if (!window.Chart) return;
   const ws = DB.workouts || [];
   const byWeek = {};
   ws.forEach(w => { const d = parseDate(w.date); if (!d) return; const wk = `${d.getFullYear()}-W${Math.ceil(d.getDate() / 7) + d.getMonth() * 4}`; byWeek[wk] = (byWeek[wk] || 0) + (w.weight || 0) * (w.reps || 0); });
@@ -789,6 +802,10 @@ function loadChartJS(cb) {
   const s = document.createElement('script');
   s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js';
   s.onload = cb;
+  s.onerror = () => {
+    console.warn("Failed to load Chart.js, loading app without charts.");
+    cb();
+  };
   document.head.appendChild(s);
 }
 
@@ -1111,59 +1128,6 @@ const PUBMED_ARTICLES = [
     summary: "Прием алкоголя после нагрузок подавляет анаболические сигналы (mTOR) и мешает восстановлению и росту поврежденных мышечных волокон.",
     study: "Parr EB et al. (2014) | PMID: 24533157",
     details: "Употребление алкоголя даже вместе с сывороточным протеином снизило скорость мышечного синтеза белка на 24-37% по сравнению с обычным белком."
-  }
-]; ускоряет выведение аммиака и лактата, снижая боль в мышцах после тренировки.",
-    study: "Pérez-Guisado J et al. (2010) | PMID: 20386124",
-    details: "Прием 8 грамм цитруллина перед тренировкой груди привел к увеличению количества повторений на 53% в последних подходах и снизил боль на 40%."
-  },
-  {
-    category: "nutrition",
-    title: "⏰ Анаболическое окно — миф или реальность?",
-    summary: "Идея о необходимости выпить протеин строго в течение 30 минут после тренировки сильно преувеличена. Гораздо важнее общие суточные калории и белок.",
-    study: "Aragon AA & Schoenfeld BJ (2013) | PMID: 24299050",
-    details: "Окно синтеза белка повышено в течение 24-48 часов после тренировки. Срочный прием белка нужен только при тренировках на голодный желудок."
-  },
-  {
-    category: "training",
-    title: "🎯 Отказной тренинг против тренировок с запасом (RIR)",
-    summary: "Тренировки до абсолютного мышечного отказа не дают преимущества для роста мышц по сравнению с тренировками с запасом в 1-3 повторения.",
-    study: "Grgic J et al. (2021) | PMID: 33497925",
-    details: "Систематический обзор показал: работа в запас (RIR 1-3) дает аналогичную гипертрофию, но бережет ЦНС и ускоряет общее восстановление."
-  },
-  {
-    category: "recovery",
-    title: "🧘 Статическая растяжка и боль в мышцах (DOMS)",
-    summary: "Растяжка до или после тренировки не снижает мышечную боль на следующий день и не снижает риск травматизма.",
-    study: "Herbert RD et al. (2011) | PMID: 21735398",
-    details: "Обзор 12 исследований показал, что растяжка снижает мышечную боль менее чем на 1-4 балла по 100-балльной шкале, что клинически незначимо."
-  },
-  {
-    category: "nutrition",
-    title: "📉 Темп похудения: Медленный против быстрого",
-    summary: "Медленная потеря веса позволяет сохранить сухую мышечную массу и силовые показатели гораздо эффективнее резкого дефицита.",
-    study: "Garthe I et al. (2011) | PMID: 21558571",
-    details: "Группа с медленным темпом (0.7% веса в неделю) увеличила мышечную массу на 2.1% при похудении, а группа быстрого темпа (1.4% веса в неделю) потеряла мышцы."
-  },
-  {
-    category: "recovery",
-    title: "🍺 Алкоголь после тренировки рушит синтез белка",
-    summary: "Прием алкоголя после нагрузок подавляет анаболические сигналы (mTOR) и мешает восстановлению и росту поврежденных мышечных волокон.",
-    study: "Parr EB et al. (2014) | PMID: 24533157",
-    details: "Употребление алкоголя даже вместе с сывороточным протеином снизило скорость мышечного синтеза белка на 24-37% по сравнению с обычным белком."
-  },
-  {
-    category: "training",
-    title: "🏃 Кардио и силовые тренировки: Эффект интерференции",
-    summary: "Выполнение кардио перед силовой тренировкой ухудшает силовые показатели. Сочетание нагрузок снижает общий анаболический ответ.",
-    study: "Murlasits Z et al. (2018) | PMID: 27318712",
-    details: "Рекомендуется либо делать кардио после силовой тренировки, либо разделять их интервалом минимум в 6-24 часа для минимизации помех."
-  },
-  {
-    category: "supplements",
-    title: "🧪 Бета-аланин: Отодвигание порога закисления",
-    summary: "Увеличивает концентрацию карнозина в мышцах, буферизируя ионы водорода. Помогает в подходах длительностью от 60 до 240 секунд.",
-    study: "Hobson RM et al. (2012) | PMID: 22267562",
-    details: "Мета-анализ показал улучшение выносливости в среднем на 2.85% при упражнениях высокой интенсивности длительностью более 1 минуты."
   }
 ];
 
