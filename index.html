@@ -397,11 +397,19 @@
         Научные данные на основе мета-анализов и контролируемых клинических исследований (РКИ).
       </p>
       
+      <div class="pubmed-categories" id="pubmed-cats" style="display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 8px;">
+        <button class="chip active" onclick="selectPubmedCategory('all', this)">🌐 Все</button>
+        <button class="chip" onclick="selectPubmedCategory('training', this)">🏋️ Тренировки</button>
+        <button class="chip" onclick="selectPubmedCategory('nutrition', this)">🥩 Питание</button>
+        <button class="chip" onclick="selectPubmedCategory('supplements', this)">💊 Добавки</button>
+        <button class="chip" onclick="selectPubmedCategory('recovery', this)">😴 Восстановление</button>
+      </div>
+      
       <div class="pubmed-search-row">
         <input type="text" id="pubmed-search" placeholder="Поиск исследований..." class="glass-input" oninput="filterPubmed()"/>
       </div>
       
-      <div class="pubmed-topics-list" id="pubmed-topics-list" style="display: flex; flex-direction: column; gap: 12px; max-height: 55vh; overflow-y: auto; padding-right: 4px;">
+      <div class="pubmed-topics-list" id="pubmed-topics-list" style="display: flex; flex-direction: column; gap: 12px; max-height: 50vh; overflow-y: auto; padding-right: 4px;">
         <!-- Topics populated by JS -->
       </div>
     </div>
